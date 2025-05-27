@@ -2,82 +2,172 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 
 	"translatehub/api/models"
 	"translatehub/api/services"
 )
 
-var (
-	tasks    = make([]models.Task, 0)
-	taskMux  sync.Mutex
-	taskID   = 1
-	changeID = 1
-)
-
-// TaskHandler handles task creation and listing
+// TaskHandler handles task-related requests
 func TaskHandler(w http.ResponseWriter, r *http.Request) {
+	// Parse the URL path to extract project ID if present
+	// Expected formats:
+	// /tasks - List all tasks or create a new task
+	// /projects/{projectId}/tasks - List or create tasks for a specific project
+	// /tasks/{taskId} - Get, update, or delete a specific task
+
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 2 {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Check if this is a project-specific tasks request
+	if len(pathParts) >= 4 && pathParts[1] == "projects" {
+		projectID, err := strconv.Atoi(pathParts[2])
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		handleProjectTasks(w, r, projectID)
+		return
+	}
+
+	// Check if this is a specific task request
+	if len(pathParts) >= 3 && pathParts[1] == "tasks" {
+		taskID, err := strconv.Atoi(pathParts[2])
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if r.Method == http.MethodGet {
+			handleGetTask(w, r, taskID)
+			return
+		}
+	}
+
+	// Handle general task requests
 	switch r.Method {
-	case http.MethodPost:
-		handleCreateTask(w, r)
 	case http.MethodGet:
 		handleListTasks(w, r)
+	case http.MethodPost:
+		handleCreateTask(w, r, 0) // 0 means no specific project
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
 
-func handleCreateTask(w http.ResponseWriter, r *http.Request) {
-	r.ParseMultipartForm(10 << 20)
-	file, handler, err := r.FormFile("file")
+func handleProjectTasks(w http.ResponseWriter, r *http.Request, projectID int) {
+	switch r.Method {
+	case http.MethodGet:
+		handleListProjectTasks(w, r, projectID)
+	case http.MethodPost:
+		handleCreateTask(w, r, projectID)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func handleListProjectTasks(w http.ResponseWriter, r *http.Request, projectID int) {
+	tasks, err := services.ListProjectTasks(projectID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Failed to list tasks: %v", err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tasks)
+}
+
+func handleListTasks(w http.ResponseWriter, r *http.Request) {
+	tasks, err := services.ListAllTasks()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Failed to list tasks: %v", err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tasks)
+}
+
+func handleCreateTask(w http.ResponseWriter, r *http.Request, projectID int) {
+	// Parse the multipart form
+	err := r.ParseMultipartForm(32 << 20) // 32MB max
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("File upload error"))
+		fmt.Fprintf(w, "Failed to parse form: %v", err)
+		return
+	}
+
+	// Get form data
+	name := r.FormValue("name")
+	creator := r.FormValue("creator")
+	if name == "" || creator == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Name and creator are required"))
+		return
+	}
+
+	// Get the file
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Failed to get file: %v", err)
 		return
 	}
 	defer file.Close()
-	content, _ := io.ReadAll(file)
+
+	// Read file content
+	content, err := io.ReadAll(file)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Failed to read file: %v", err)
+		return
+	}
+
 	lines := splitLines(string(content))
-	sourceLang := r.FormValue("source_lang")
-	targetLang := r.FormValue("target_lang")
+
+	// Get project details to get source and target languages
+	project, err := services.GetProject(projectID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Failed to get project details: %v", err)
+		return
+	}
+
+	// Create dialogues with initial translations
 	dialogues := make([]models.Dialogue, len(lines))
 	for i, line := range lines {
 		dialogues[i] = models.Dialogue{
 			ID:    i + 1,
 			Text:  line,
-			Trans: services.GeminiTranslate(line, sourceLang, targetLang),
+			Trans: services.GeminiTranslate(line, project.SourceLang, project.TargetLang),
 		}
 	}
-	taskMux.Lock()
-	task := models.Task{
-		ID:        taskID,
-		Creator:   r.FormValue("user"),
-		Filename:  handler.Filename,
+
+	// Create task
+	task := &models.Task{
+		Name:      name,
+		Creator:   creator,
+		Status:    "new",
+		ProjectID: projectID,
+		Filename:  header.Filename,
 		Dialogues: dialogues,
-		Status:    "open",
 	}
-	err = services.CreateTask(&task)
+
+	err = services.CreateTask(task)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Failed to create task in DB"))
+		fmt.Fprintf(w, "Failed to create task: %v", err)
 		return
 	}
-	tasks = append(tasks, task)
-	taskID++
-	taskMux.Unlock()
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(task)
-}
-
-func handleListTasks(w http.ResponseWriter, r *http.Request) {
-	taskMux.Lock()
-	defer taskMux.Unlock()
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tasks)
 }
 
 func splitLines(s string) []string {
@@ -95,33 +185,23 @@ func SubmitChangeHandler(w http.ResponseWriter, r *http.Request) {
 	user := r.FormValue("user")
 	newTrans := r.FormValue("new_trans")
 
-	taskMux.Lock()
-	defer taskMux.Unlock()
-	for i, t := range tasks {
-		if t.ID == taskID {
-			change := models.Change{
-				ID:         changeID,
-				TaskID:     taskID,
-				DialogueID: dialogueID,
-				User:       user,
-				NewTrans:   newTrans,
-				Status:     "pending",
-			}
-			err := services.AddChange(&change)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("Failed to add change in DB"))
-				return
-			}
-			tasks[i].Changes = append(tasks[i].Changes, change)
-			changeID++
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(change)
-			return
-		}
+	change := &models.Change{
+		TaskID:     taskID,
+		DialogueID: dialogueID,
+		User:       user,
+		NewTrans:   newTrans,
+		Status:     "pending",
 	}
-	w.WriteHeader(http.StatusNotFound)
-	w.Write([]byte("Task not found"))
+
+	err := services.AddChange(change)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Failed to add change: %v", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(change)
 }
 
 // ReviewChangeHandler allows the task creator to approve/reject a change
@@ -130,44 +210,60 @@ func ReviewChangeHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+
 	taskID, _ := strconv.Atoi(r.FormValue("task_id"))
-	changeIDVal, _ := strconv.Atoi(r.FormValue("change_id"))
+	changeID, _ := strconv.Atoi(r.FormValue("change_id"))
 	status := r.FormValue("status") // approved or rejected
 	user := r.FormValue("user")
 
-	taskMux.Lock()
-	defer taskMux.Unlock()
-	for i, t := range tasks {
-		if t.ID == taskID && t.Creator == user {
-			for j, c := range t.Changes {
-				if c.ID == changeIDVal {
-					tasks[i].Changes[j].Status = status
-					if status == "approved" {
-						for k, d := range t.Dialogues {
-							if d.ID == c.DialogueID {
-								tasks[i].Dialogues[k].Trans = c.NewTrans
-								err := services.UpdateTask(&tasks[i])
-								if err != nil {
-									w.WriteHeader(http.StatusInternalServerError)
-									w.Write([]byte("Failed to update task in DB"))
-									return
-								}
-							}
-						}
-					}
-					err := services.UpdateChange(&tasks[i].Changes[j])
-					if err != nil {
-						w.WriteHeader(http.StatusInternalServerError)
-						w.Write([]byte("Failed to update change in DB"))
-						return
-					}
-					w.WriteHeader(http.StatusOK)
-					w.Write([]byte("Change reviewed"))
-					return
-				}
-			}
+	task, err := services.GetTask(taskID)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "Task not found: %v", err)
+		return
+	}
+
+	if task.Creator != user {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("Only the task creator can review changes"))
+		return
+	}
+
+	err = services.UpdateChangeStatus(changeID, status)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Failed to update change: %v", err)
+		return
+	}
+
+	if status == "approved" {
+		change, err := services.GetChange(changeID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "Failed to get change details: %v", err)
+			return
+		}
+
+		err = services.UpdateDialogueTranslation(taskID, change.DialogueID, change.NewTrans)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "Failed to update dialogue: %v", err)
+			return
 		}
 	}
-	w.WriteHeader(http.StatusNotFound)
-	w.Write([]byte("Change or task not found, or not authorized"))
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Change reviewed"))
+}
+
+func handleGetTask(w http.ResponseWriter, r *http.Request, taskID int) {
+	task, err := services.GetTask(taskID)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "Failed to get task: %v", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(task)
 }

@@ -1,7 +1,9 @@
 -- SQL schema for TranslateHub
 CREATE TABLE IF NOT EXISTS projects (
     id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL
+    name TEXT NOT NULL,
+    source_lang TEXT,
+    target_lang TEXT
 );
 
 CREATE TABLE IF NOT EXISTS tasks (

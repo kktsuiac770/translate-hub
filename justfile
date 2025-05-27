@@ -1,7 +1,7 @@
 # Justfile for local development
 
-@default: 
-
+@default:
+  just --list
 # Start a PostgreSQL container for local development
 start-db:
 	docker run --name translatehub-postgres -e POSTGRES_USER=youruser -e POSTGRES_PASSWORD=yourpassword -e POSTGRES_DB=translatehub -p 5432:5432 -d postgres:16
@@ -21,4 +21,4 @@ psql:
 
 # Run DB migrations (apply schema changes)
 migrate-db:
-	docker exec -i translatehub-postgres psql -U youruser -d translatehub < db_schema.sql
+	docker exec -i translatehub-postgres psql -U youruser -d translatehub < backend/db_schema.sql

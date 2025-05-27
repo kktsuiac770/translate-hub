@@ -1,7 +1,27 @@
 ### Sample HTTP requests for TranslateHub API
 
-# 1. Create a translation task (upload file, specify source/target language)
-POST http://localhost:8080/tasks
+### Project Management
+
+# 1. Create a new project
+POST http://localhost:8080/projects
+Content-Type: application/json
+
+{
+    "name": "Japanese Translation Project",
+    "source_lang": "en",
+    "target_lang": "jp"
+}
+
+# 2. List all projects
+GET http://localhost:8080/projects
+
+# 3. Get a specific project
+GET http://localhost:8080/projects/1
+
+### Task Management
+
+# 4. Create a translation task for a specific project
+POST http://localhost:8080/projects/1/tasks
 Content-Type: multipart/form-data; boundary=boundary
 
 --boundary
@@ -11,35 +31,39 @@ Content-Type: text/plain
 Hello, how are you?
 This is a test.
 --boundary
-Content-Disposition: form-data; name="user"
+Content-Disposition: form-data; name="name"
+
+Chapter 1 Translation
+--boundary
+Content-Disposition: form-data; name="creator"
 
 alice
---boundary
-Content-Disposition: form-data; name="source_lang"
-
-en
---boundary
-Content-Disposition: form-data; name="target_lang"
-
-jp
 --boundary--
 
-### 2. List all translation tasks
+# 5. List tasks for a specific project
+GET http://localhost:8080/projects/1/tasks
+
+# 6. List all tasks (across all projects)
 GET http://localhost:8080/tasks
 
-### 3. Submit a translation change for a dialogue line
+# 7. Get a specific task with its dialogues
+GET http://localhost:8080/tasks/1
+
+### Translation Changes
+
+# 8. Submit a translation change for a dialogue line
 POST http://localhost:8080/changes
 Content-Type: application/x-www-form-urlencoded
 
 task_id=1&dialogue_id=1&user=bob&new_trans=こんにちは、お元気ですか？
 
-### 4. Review (approve) a submitted change (by task creator)
+# 9. Review (approve) a submitted change
 POST http://localhost:8080/review
 Content-Type: application/x-www-form-urlencoded
 
 task_id=1&change_id=1&user=alice&status=approved
 
-### 5. Review (reject) a submitted change (by task creator)
+# 10. Review (reject) a submitted change
 POST http://localhost:8080/review
 Content-Type: application/x-www-form-urlencoded
 
