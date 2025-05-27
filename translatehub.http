@@ -1,0 +1,46 @@
+### Sample HTTP requests for TranslateHub API
+
+# 1. Create a translation task (upload file, specify source/target language)
+POST http://localhost:8080/tasks
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="dialogue.txt"
+Content-Type: text/plain
+
+Hello, how are you?
+This is a test.
+--boundary
+Content-Disposition: form-data; name="user"
+
+alice
+--boundary
+Content-Disposition: form-data; name="source_lang"
+
+en
+--boundary
+Content-Disposition: form-data; name="target_lang"
+
+jp
+--boundary--
+
+### 2. List all translation tasks
+GET http://localhost:8080/tasks
+
+### 3. Submit a translation change for a dialogue line
+POST http://localhost:8080/changes
+Content-Type: application/x-www-form-urlencoded
+
+task_id=1&dialogue_id=1&user=bob&new_trans=こんにちは、お元気ですか？
+
+### 4. Review (approve) a submitted change (by task creator)
+POST http://localhost:8080/review
+Content-Type: application/x-www-form-urlencoded
+
+task_id=1&change_id=1&user=alice&status=approved
+
+### 5. Review (reject) a submitted change (by task creator)
+POST http://localhost:8080/review
+Content-Type: application/x-www-form-urlencoded
+
+task_id=1&change_id=1&user=alice&status=rejected
