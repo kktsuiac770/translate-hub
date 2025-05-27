@@ -8,6 +8,8 @@ type Dialogue struct {
 
 type Task struct {
 	ID        int        `json:"id"`
+	ProjectID int        `json:"project_id"`
+	Name      string     `json:"name"`
 	Creator   string     `json:"creator"`
 	Filename  string     `json:"filename"`
 	Dialogues []Dialogue `json:"dialogues"`

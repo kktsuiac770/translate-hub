@@ -60,6 +60,12 @@ func handleCreateTask(w http.ResponseWriter, r *http.Request) {
 		Dialogues: dialogues,
 		Status:    "open",
 	}
+	err = services.CreateTask(&task)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Failed to create task in DB"))
+		return
+	}
 	tasks = append(tasks, task)
 	taskID++
 	taskMux.Unlock()
@@ -101,6 +107,12 @@ func SubmitChangeHandler(w http.ResponseWriter, r *http.Request) {
 				NewTrans:   newTrans,
 				Status:     "pending",
 			}
+			err := services.AddChange(&change)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("Failed to add change in DB"))
+				return
+			}
 			tasks[i].Changes = append(tasks[i].Changes, change)
 			changeID++
 			w.Header().Set("Content-Type", "application/json")
@@ -134,8 +146,20 @@ func ReviewChangeHandler(w http.ResponseWriter, r *http.Request) {
 						for k, d := range t.Dialogues {
 							if d.ID == c.DialogueID {
 								tasks[i].Dialogues[k].Trans = c.NewTrans
+								err := services.UpdateTask(&tasks[i])
+								if err != nil {
+									w.WriteHeader(http.StatusInternalServerError)
+									w.Write([]byte("Failed to update task in DB"))
+									return
+								}
 							}
 						}
+					}
+					err := services.UpdateChange(&tasks[i].Changes[j])
+					if err != nil {
+						w.WriteHeader(http.StatusInternalServerError)
+						w.Write([]byte("Failed to update change in DB"))
+						return
 					}
 					w.WriteHeader(http.StatusOK)
 					w.Write([]byte("Change reviewed"))
