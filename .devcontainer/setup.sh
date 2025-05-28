@@ -20,3 +20,7 @@ export PATH="$PATH:$HOME/bin"
 
 # just should now be executable
 just --help
+
+# install golang-migrate CLI
+curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.1/migrate.linux-amd64.tar.gz | sudo tar xvz -C /usr/local/bin migrate && \
+sudo chmod +x /usr/local/bin/migrate

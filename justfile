@@ -9,9 +9,8 @@ set dotenv-load := true
 psql:
 	PGPASSWORD=pass psql -h db -d translatehub
 
-# Run DB migrations (apply schema changes)
 migrate-db:
-	PGPASSWORD=pass psql -h db -d translatehub < backend/db_schema.sql
+	migrate -path backend/migrations -database "postgres://vscode:pass@db:5432/translatehub?sslmode=disable" up
 
 build-go:
 	cd backend && go build -o ../bin/translatehub  && cd ..
