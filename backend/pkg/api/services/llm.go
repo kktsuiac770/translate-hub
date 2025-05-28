@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/joho/godotenv"
 	genai "google.golang.org/genai"
 )
 
@@ -16,7 +15,6 @@ func MockLLMTranslate(text string) string {
 
 // GeminiTranslate uses Google GenAI to translate text from sourceLang to targetLang
 func GeminiTranslate(text, sourceLang, targetLang string) string {
-	_ = godotenv.Load(".env")
 	apiKey := os.Getenv("GOOGLE_GENAI_API_KEY")
 	if apiKey == "" {
 		return "[LLM error] missing API key"

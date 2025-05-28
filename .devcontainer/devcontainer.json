@@ -9,8 +9,9 @@
         "terminal.integrated.shell.linux": "/bin/bash"
       },
       "extensions": [
-         "vscjava.vscode-java-pack",
-        "pivotal.vscode-spring-boot"
+         "nefrob.vscode-just-syntax",
+         "golang.go",
+         "cweijan.vscode-postgresql-client2"
       ]
     }
   },

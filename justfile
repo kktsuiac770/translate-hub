@@ -1,5 +1,7 @@
 # Justfile for local development
 
+set dotenv-load := true
+
 @default:
   just --list
 
