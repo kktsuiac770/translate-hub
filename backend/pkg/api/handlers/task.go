@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"translatehub/api/models"
-	"translatehub/api/services"
+	"translatehub/pkg/api/models"
+	"translatehub/pkg/api/services"
 )
 
 // TaskHandler handles task-related requests

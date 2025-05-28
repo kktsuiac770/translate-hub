@@ -4,8 +4,9 @@ import (
 	"log"
 	"net/http"
 
-	"translatehub/api/handlers"
-	"translatehub/api/services"
+	"translatehub/pkg/api/handlers"
+
+	"translatehub/pkg/api/services"
 )
 
 func withCORS(h http.HandlerFunc) http.HandlerFunc {

@@ -1,0 +1,29 @@
+version: '3'
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+      - "8080:8080"
+    volumes:
+      # This is where VS Code should expect to find your project's source code and the value of "workspaceFolder" in .devcontainer/devcontainer.json
+      - ..:/workspace:cached
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://vscode:pass@db:5432/translatehub
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_DB: translatehub
+      POSTGRES_USER: vscode
+      POSTGRES_PASSWORD: pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

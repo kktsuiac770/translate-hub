@@ -3,8 +3,8 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"translatehub/api/models"
-	"translatehub/api/services"
+	"translatehub/pkg/api/models"
+	"translatehub/pkg/api/services"
 )
 
 // ProjectHandler handles project creation and listing

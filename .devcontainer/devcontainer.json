@@ -1,0 +1,19 @@
+{
+  "name": "Go DevContainer",
+  "dockerComposeFile": "docker-compose.yml",
+	"service": "dev",
+  "workspaceFolder": "/workspace",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+      },
+      "extensions": [
+         "vscjava.vscode-java-pack",
+        "pivotal.vscode-spring-boot"
+      ]
+    }
+  },
+  "postCreateCommand": "./.devcontainer/setup.sh",
+  "remoteUser": "vscode"
+}

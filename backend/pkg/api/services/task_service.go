@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
-	"translatehub/api/models"
+	"translatehub/pkg/api/models"
 )
 
 // CreateTask inserts a new task and its dialogues into the database

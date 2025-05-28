@@ -2,7 +2,7 @@ package services
 
 import (
 	"context"
-	"translatehub/api/models"
+	"translatehub/pkg/api/models"
 )
 
 func CreateProject(project *models.Project) error {
